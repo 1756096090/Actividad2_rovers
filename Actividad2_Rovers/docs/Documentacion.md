@@ -19,8 +19,8 @@ Se resolvió el problema PDDL *Rovers* mediante la extensión PDDL de VS Code co
 
 | Archivo | Función |
 | --- | --- |
-| `Actividad2_Rovers/rovers_dominio.pddl` | Define los tipos, predicados y acciones del dominio. |
-| `Actividad2_Rovers/rovers_problema.pddl` | Define el estado inicial, los objetos y los objetivos del problema. |
+| `Actividad2_Rovers/src/rovers_dominio.pddl` | Define los tipos, predicados y acciones del dominio. |
+| `Actividad2_Rovers/src/rovers_problema.pddl` | Define el estado inicial, los objetos y los objetivos del problema. |
 | [[Resumen]] | Conserva el registro completo de evidencias y el listado del plan. |
 
 ## Configuración del planificador
