@@ -36,8 +36,11 @@
 
 	
 (:action navigate-bat
-:parameters (?r - rover ?y - waypoint ?z - waypoint
-              ?b - battery ?bmax ?bcur ?bnext - blevel
+:parameters (?r - rover 
+              ?y - waypoint 
+              ?z - waypoint
+              ?b - battery 
+              ?bmax ?bcur ?bnext - blevel
 ) 
 :precondition (and (can_traverse ?r ?y ?z) (available ?r) (at ?r ?y) 
                 (visible ?y ?z)
