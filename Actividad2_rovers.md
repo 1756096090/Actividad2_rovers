@@ -3,9 +3,10 @@ materia: Razonamiento y planificación automática
 actividad: 2
 tipo: preguntas a resolver
 tags:
-  - pddl
-  - planificación
-  - rovers
+
+- pddl
+- planificación
+- rovers
 ---
 # Actividad 2 (Grupal): Planificación para un rover marciano
 
@@ -572,14 +573,194 @@ Por lo tanto, para el tercer objetivo tenemos tres posibles acciones:
 
 - [ ] **1.4.** Ejecutar un planificador adecuado y analizar el plan obtenido **y la traza de ejecución**. Hay que **referenciar y citar el artículo científico** que describe ese planificador para explicar los elementos de la traza.
 
+
+
+Para realizar la actividad se utilizó BFWS-dual-FF-parser, ya que es uno de los planificadores de referencia de la actividad, es compatible con PDDL 1.2 y permite encontrar rápidamente un plan válido. Este planificador es satisfactorio, es decir, busca encontrar una solución, pero no garantiza que el plan encontrado sea el más corto.
+
+BFWS utiliza la novedad de los estados y también analiza qué tan cerca se encuentra cada estado de cumplir los objetivos. En la traza aparecen valores como **[3/2]**. El primer número #g representa la cantidad de objetivos que todavía faltan por cumplir, mientras que el segundo #r representa los hechos útiles del último plan relajado que ya se han conseguido. Por eso, el primer valor va disminuyendo de 3 a 0 a medida que se van cumpliendo los objetivos, como explican Lipovetzky y Geffner en 2017.
+
+La configuración Dual-BFWS realiza dos búsquedas. Primero ejecuta 1-BFWS, que es una búsqueda más rápida y trabaja con estados de novedad 1. Si esta búsqueda no encuentra una solución, se realiza una segunda búsqueda más completa. En este caso no fue necesario realizar la segunda búsqueda, porque 1-BFWS encontró directamente un plan válido.
+
+El resultado obtenido fue un plan de 12 acciones, con un coste de 12, debido a que cada acción tiene un coste unitario. Durante la búsqueda se generaron 166 estados, de los cuales 113 fueron expandidos, y el tiempo de búsqueda fue de 0,000634 segundos. Estos valores corresponden a los datos mostrados en la traza proporcionada por el planificador.
+
+Por otro lado, el valor 0,011 que aparece en la última acción de la traza corresponde a la marca temporal de esa acción y no al coste total del plan. Por lo tanto, el coste del plan sigue siendo 12, mientras que 0,011 corresponde al tiempo asociado a la ejecución mostrada en la traza.
+
+Referencia
+
+Lipovetzky, N., y Geffner, H. 2017. Best-first width search: Exploration and exploitation in classical planning. Proceedings of the AAAI Conference on Artificial Intelligence, 31, 3590–3596. [https://doi.org/10.1609/aaai.v31i1.11027](https://doi.org/10.1609/aaai.v31i1.11027)
+
 ## Parte 2. Modificación del estado inicial y objetivos
 
 Solo se toca el **fichero de problema**. Las dos cuestiones se resuelven de forma **independiente**, cada una partiendo del problema inicial.
 
-- [ ] **2.1.** Añadir un waypoint nuevo conectado con dos de los anteriores (de forma que el rover pueda moverse a él), que contenga muestra de suelo y de roca. Añadir los objetivos para que se comunique la información de ambas muestras y, además, que el rover **termine en `waypoint1`**. Comentar los cambios en el código y en la memoria.
+- [X] **2.1.** Añadir un waypoint nuevo conectado con dos de los anteriores (de forma que el rover pueda moverse a él), que contenga muestra de suelo y de roca. Añadir los objetivos para que se comunique la información de ambas muestras y, además, que el rover **termine en `waypoint1`**. Comentar los cambios en el código y en la memoria.
   → Entregar `rovers_parte2.1_problema.pddl`
-- [ ] **2.2.** Añadir un segundo rover (`rover1`) con capacidad de **movimiento y fotografía**, **sin modificar nada de `rover0`**. Debe tener su propia batería con nivel inicial `b2`. Añadir lo necesario para que se comuniquen los datos de **todas** las muestras de roca y suelo del problema y las fotografías de **todos** los objetivos en **los tres modos**. Comentar los cambios.
+
+Revisamos cómo se encuentra el problema actualmente. Como primer paso agregamos el nuevo objeto, que sería el waypoint4, y añadimos las muestras que debe recolectar allí:
+
+```pddl
+(at_soil_sample waypoint4)
+(at_rock_sample waypoint4)
+```
+
+En el enunciado nos piden que se puedan comunicar las muestras, por lo que tenemos que revisar las precondiciones de `communicate_soil_data` y `communicate_rock_data`. La primera condición es `(at ?r ?x)`, que no hay que cambiar porque ya existe `(at rover0 waypoint1)` y la modifica `navigate-bat`. Sigue `(at_lander ?l ?y)`, donde `?y` debe ser waypoint2 según el `:init`, que indica `(at_lander general waypoint2)`. Conectar el waypoint nuevo con waypoint2 permite además al planificador recargar la batería si le hace falta, ya que es la posición del lander. Después vienen `have_soil_analysis` y `have_rock_analysis`, que se generan al tomar las muestras. A continuación viene `(visible ?x ?y)`, y como ya sabemos que `?x` e `?y` son waypoint4 y waypoint2, tenemos que agregar `(visible waypoint4 waypoint2)`. Por último, `(available ?r)` y `(channel_free ?l)` se mantienen por defecto.
+
+Ahora conectamos el waypoint nuevo con dos de los anteriores. Teniendo en cuenta lo anterior, mantenemos waypoint2 por la parte de visibilidad y agregamos waypoint1, que es donde el rover parte al comenzar y donde debe terminar. La conexión se declara en ambas direcciones:
+
+```pddl
+(visible waypoint1 waypoint4)
+(visible waypoint4 waypoint1)
+(visible waypoint2 waypoint4)
+(visible waypoint4 waypoint2)
+```
+
+Y, lo más importante, que pueda desplazarse, igualmente en ambas direcciones:
+
+```pddl
+(can_traverse rover0 waypoint1 waypoint4)
+(can_traverse rover0 waypoint4 waypoint1)
+(can_traverse rover0 waypoint2 waypoint4)
+(can_traverse rover0 waypoint4 waypoint2)
+```
+
+Finalmente se definen los objetivos, que son comunicar ambas muestras y que el rover llegue a waypoint1 al final:
+
+```pddl
+(communicated_soil_data waypoint4)
+(communicated_rock_data waypoint4)
+(at rover0 waypoint1)
+```
+
+Los resultados al aplicar el planificador  `dual-bfws-ffparser` vía `solver.planning.domains`
+
+```code-runner-output
+Nodes generated during search: 369
+Nodes expanded during search: 181
+Plan found with cost: 20
+Fast-BFS search completed in 0.001483 secs
+Plan found:
+0.00000: (CALIBRATE ROVER0 CAMERA0 OBJECTIVE1 WAYPOINT1)
+0.00100: (TAKE_IMAGE ROVER0 WAYPOINT1 OBJECTIVE1 CAMERA0 HIGH_RES)
+0.00200: (COMMUNICATE_IMAGE_DATA ROVER0 GENERAL OBJECTIVE1 HIGH_RES WAYPOINT1 WAYPOINT2)
+0.00300: (NAVIGATE-BAT ROVER0 WAYPOINT1 WAYPOINT4 BAT0 B4 B2 B1)
+0.00400: (SAMPLE_SOIL ROVER0 ROVER0STORE WAYPOINT4)
+0.00500: (COMMUNICATE_SOIL_DATA ROVER0 GENERAL WAYPOINT4 WAYPOINT4 WAYPOINT2)
+0.00600: (DROP ROVER0 ROVER0STORE)
+0.00700: (SAMPLE_ROCK ROVER0 ROVER0STORE WAYPOINT4)
+0.00800: (COMMUNICATE_ROCK_DATA ROVER0 GENERAL WAYPOINT4 WAYPOINT4 WAYPOINT2)
+0.00900: (NAVIGATE-BAT ROVER0 WAYPOINT4 WAYPOINT2 BAT0 B4 B1 B0)
+0.01000: (DROP ROVER0 ROVER0STORE)
+0.01100: (SAMPLE_SOIL ROVER0 ROVER0STORE WAYPOINT2)
+0.01200: (RECHARGE ROVER0 GENERAL WAYPOINT2 BAT0 B4 B0)
+0.01300: (NAVIGATE-BAT ROVER0 WAYPOINT2 WAYPOINT1 BAT0 B4 B4 B3)
+0.01400: (COMMUNICATE_SOIL_DATA ROVER0 GENERAL WAYPOINT2 WAYPOINT1 WAYPOINT2)
+0.01500: (DROP ROVER0 ROVER0STORE)
+0.01600: (NAVIGATE-BAT ROVER0 WAYPOINT1 WAYPOINT3 BAT0 B4 B3 B2)
+0.01700: (SAMPLE_ROCK ROVER0 ROVER0STORE WAYPOINT3)
+0.01800: (COMMUNICATE_ROCK_DATA ROVER0 GENERAL WAYPOINT3 WAYPOINT3 WAYPOINT2)
+0.01900: (NAVIGATE-BAT ROVER0 WAYPOINT3 WAYPOINT1 BAT0 B4 B2 B1)
+```
+
+- [X] **2.2.** Añadir un segundo rover (`rover1`) con capacidad de **movimiento y fotografía**, **sin modificar nada de `rover0`**. Debe tener su propia batería con nivel inicial `b2`. Añadir lo necesario para que se comuniquen los datos de **todas** las muestras de roca y suelo del problema y las fotografías de **todos** los objetivos en **los tres modos**. Comentar los cambios.
   → Entregar `rovers_parte2.2_problema.pddl`
+
+En la primera parte agregamos todos los objetos que son `rover1`, `bat1` y `camera1`. Luego lo ponemos disponible con `(available rover1)` y hacemos que inicie en algún punto, en este caso le puse `(at rover1 waypoint0)` porque desde waypoint0 también son visibles todos los objetivos. Con esto podemos decir que waypoint3 no sería una buena decisión, porque desde ahí el rover no tendría acceso a toda la información de los objetivos desde el principio.
+
+Revisemos ahora la implementación de la cámara. Como primer paso, que `camera1` esté a bordo de `rover1` con `(on_board camera1 rover1)`. También que esté calibrada para todos los objetivos, mediante `(calibration_target camera1 objective0)` y `(calibration_target camera1 objective1)`. Y, como menciona el enunciado, que soporte los tres modos con `(supports camera1 colour)`, `(supports camera1 low_res)` y `(supports camera1 high_res)`.
+
+En cuanto a la batería, hay que instalarla con un nivel inicial `b2` mediante `(battery_installed rover1 bat1 b4 b2)`. Como máximo se elige `b4` en lugar de `b5`, porque la precondición `(lower ?bnext ?bcur)` de la acción `navigate-bat` exige que exista un nivel inferior al actual. Al no haber ningún hecho `lower` con `b5` como segundo argumento, el rover quedaría bloqueado justo después de recargar.
+
+De ahí agregamos las rutas que puede recorrer copiamos las rutas del rover0 y agregamos más rutas con el lander para que no se quede sin batería en el caso que lo necesite.
+
+```pddl
+	(can_traverse rover1 waypoint0 waypoint2)
+	(can_traverse rover1 waypoint2 waypoint0)
+	(can_traverse rover1 waypoint3 waypoint2)
+	(can_traverse rover1 waypoint2 waypoint3)
+```
+
+Con esto ya podemos pasar a los objetivos. Primero faltan las comunicaciones de los datos de las muestras que sí existen en el escenario:
+
+```pddl
+	(communicated_soil_data waypoint0)
+	(communicated_soil_data waypoint3)
+	(communicated_rock_data waypoint1)
+	(communicated_rock_data waypoint2
+```
+
+Y de ahí únicamente queda añadir los tres modos para los dos objetivos:
+
+```pddl
+	(communicated_image_data objective0 colour)
+	(communicated_image_data objective0 high_res)
+	(communicated_image_data objective0 low_res)
+	(communicated_image_data objective1 colour)
+	(communicated_image_data objective1 low_res)
+```
+
+Realizamos las pruebas y miramos si algo falta para cumplir el enuciado
+
+Los resultados al aplicar el planificador  `dual-bfws-ffparser` vía `solver.planning.domains`lo cual nos muestran que cumplen cada parte y no hay que agregar más información
+
+```code-runner-output
+Total time: 0.003008
+Nodes generated during search: 736
+Nodes expanded during search: 392
+Plan found with cost: 45
+Fast-BFS search completed in 0.003008 secs
+
+
+Plan found:
+0.00000: (SAMPLE_ROCK ROVER0 ROVER0STORE WAYPOINT1)
+0.00100: (COMMUNICATE_ROCK_DATA ROVER0 GENERAL WAYPOINT1 WAYPOINT1 WAYPOINT2)
+0.00200: (CALIBRATE ROVER0 CAMERA0 OBJECTIVE1 WAYPOINT1)
+0.00300: (TAKE_IMAGE ROVER0 WAYPOINT1 OBJECTIVE1 CAMERA0 HIGH_RES)
+0.00400: (COMMUNICATE_IMAGE_DATA ROVER0 GENERAL OBJECTIVE1 HIGH_RES WAYPOINT1 WAYPOINT2)
+0.00500: (CALIBRATE ROVER0 CAMERA0 OBJECTIVE1 WAYPOINT1)
+0.00600: (TAKE_IMAGE ROVER0 WAYPOINT1 OBJECTIVE0 CAMERA0 COLOUR)
+0.00700: (COMMUNICATE_IMAGE_DATA ROVER0 GENERAL OBJECTIVE0 COLOUR WAYPOINT1 WAYPOINT2)
+0.00800: (CALIBRATE ROVER1 CAMERA1 OBJECTIVE0 WAYPOINT0)
+0.00900: (TAKE_IMAGE ROVER1 WAYPOINT0 OBJECTIVE1 CAMERA1 COLOUR)
+0.01000: (COMMUNICATE_IMAGE_DATA ROVER1 GENERAL OBJECTIVE1 COLOUR WAYPOINT0 WAYPOINT2)
+0.01100: (CALIBRATE ROVER1 CAMERA1 OBJECTIVE0 WAYPOINT0)
+0.01200: (TAKE_IMAGE ROVER1 WAYPOINT0 OBJECTIVE0 CAMERA1 HIGH_RES)
+0.01300: (COMMUNICATE_IMAGE_DATA ROVER1 GENERAL OBJECTIVE0 HIGH_RES WAYPOINT0 WAYPOINT2)
+0.01400: (CALIBRATE ROVER1 CAMERA1 OBJECTIVE0 WAYPOINT0)
+0.01500: (TAKE_IMAGE ROVER1 WAYPOINT0 OBJECTIVE0 CAMERA1 LOW_RES)
+0.01600: (COMMUNICATE_IMAGE_DATA ROVER1 GENERAL OBJECTIVE0 LOW_RES WAYPOINT0 WAYPOINT2)
+0.01700: (CALIBRATE ROVER1 CAMERA1 OBJECTIVE0 WAYPOINT0)
+0.01800: (TAKE_IMAGE ROVER1 WAYPOINT0 OBJECTIVE1 CAMERA1 LOW_RES)
+0.01900: (COMMUNICATE_IMAGE_DATA ROVER1 GENERAL OBJECTIVE1 LOW_RES WAYPOINT0 WAYPOINT2)
+0.02000: (NAVIGATE-BAT ROVER0 WAYPOINT1 WAYPOINT2 BAT0 B4 B2 B1)
+0.02100: (DROP ROVER0 ROVER0STORE)
+0.02200: (RECHARGE ROVER0 GENERAL WAYPOINT2 BAT0 B4 B1)
+0.02300: (SAMPLE_ROCK ROVER0 ROVER0STORE WAYPOINT2)
+0.02400: (NAVIGATE-BAT ROVER0 WAYPOINT2 WAYPOINT1 BAT0 B4 B4 B3)
+0.02500: (COMMUNICATE_ROCK_DATA ROVER0 GENERAL WAYPOINT2 WAYPOINT1 WAYPOINT2)
+0.02600: (NAVIGATE-BAT ROVER0 WAYPOINT1 WAYPOINT2 BAT0 B4 B3 B2)
+0.02700: (DROP ROVER0 ROVER0STORE)
+0.02800: (SAMPLE_SOIL ROVER0 ROVER0STORE WAYPOINT2)
+0.02900: (NAVIGATE-BAT ROVER0 WAYPOINT2 WAYPOINT1 BAT0 B4 B2 B1)
+0.03000: (COMMUNICATE_SOIL_DATA ROVER0 GENERAL WAYPOINT2 WAYPOINT1 WAYPOINT2)
+0.03100: (NAVIGATE-BAT ROVER0 WAYPOINT1 WAYPOINT2 BAT0 B4 B1 B0)
+0.03200: (RECHARGE ROVER0 GENERAL WAYPOINT2 BAT0 B4 B0)
+0.03300: (DROP ROVER0 ROVER0STORE)
+0.03400: (NAVIGATE-BAT ROVER0 WAYPOINT2 WAYPOINT1 BAT0 B4 B4 B3)
+0.03500: (NAVIGATE-BAT ROVER0 WAYPOINT1 WAYPOINT3 BAT0 B4 B3 B2)
+0.03600: (SAMPLE_ROCK ROVER0 ROVER0STORE WAYPOINT3)
+0.03700: (COMMUNICATE_ROCK_DATA ROVER0 GENERAL WAYPOINT3 WAYPOINT3 WAYPOINT2)
+0.03800: (DROP ROVER0 ROVER0STORE)
+0.03900: (SAMPLE_SOIL ROVER0 ROVER0STORE WAYPOINT3)
+0.04000: (COMMUNICATE_SOIL_DATA ROVER0 GENERAL WAYPOINT3 WAYPOINT3 WAYPOINT2)
+0.04100: (NAVIGATE-BAT ROVER0 WAYPOINT3 WAYPOINT0 BAT0 B4 B2 B1)
+0.04200: (DROP ROVER0 ROVER0STORE)
+0.04300: (SAMPLE_SOIL ROVER0 ROVER0STORE WAYPOINT0)
+0.04400: (COMMUNICATE_SOIL_DATA ROVER0 GENERAL WAYPOINT0 WAYPOINT0 WAYPOINT2)
+Metric: 0.04400000000000003
+Makespan: 0.04400000000000003
+States evaluated: undefined
+Planner found 1 plan(s) in 2.772secs.
+```
 
 ## Parte 3. Ejecución y evaluación del planificador
 
@@ -607,8 +788,8 @@ Cambios pedidos:
 
 ### Código (nombres exactos)
 
-- [ ] `rovers_parte2.1_problema.pddl`
-- [ ] `rovers_parte2.2_problema.pddl`
+- [X] `rovers_parte2.1_problema.pddl`
+- [X] `rovers_parte2.2_problema.pddl`
 - [ ] `rovers_parte4_dominio.pddl`
 - [ ] `rovers_parte4_problema.pddl`
 
@@ -626,3 +807,27 @@ Se probará automáticamente con **BFWS-dual-ff-parser** y/o **lama-first**. Si 
 ## Estado actual del repositorio
 
 Lo que ya hay en `Actividad2_Rovers/src/` es el **dominio y problema base** sin modificar, y en [[Documentacion]] está la ejecución del caso inicial (Fast-BFS, coste 12, 113 nodos expandidos), que sirve de base para **1.1** y como punto de comparación para **3.1** y **3.2**. Falta la cita del artículo del planificador que exige **1.4**.
+
+```code-runner-output
+Plan found:
+0.00000: (CALIBRATE ROVER0 CAMERA0 OBJECTIVE1 WAYPOINT1)
+0.00100: (TAKE_IMAGE ROVER0 WAYPOINT1 OBJECTIVE1 CAMERA0 HIGH_RES)
+0.00200: (COMMUNICATE_IMAGE_DATA ROVER0 GENERAL OBJECTIVE1 HIGH_RES WAYPOINT1 WAYPOINT2)
+0.00300: (NAVIGATE-BAT ROVER0 WAYPOINT1 WAYPOINT4 BAT0 B4 B2 B1)
+0.00400: (SAMPLE_SOIL ROVER0 ROVER0STORE WAYPOINT4)
+0.00500: (COMMUNICATE_SOIL_DATA ROVER0 GENERAL WAYPOINT4 WAYPOINT4 WAYPOINT2)
+0.00600: (DROP ROVER0 ROVER0STORE)
+0.00700: (SAMPLE_ROCK ROVER0 ROVER0STORE WAYPOINT4)
+0.00800: (COMMUNICATE_ROCK_DATA ROVER0 GENERAL WAYPOINT4 WAYPOINT4 WAYPOINT2)
+0.00900: (NAVIGATE-BAT ROVER0 WAYPOINT4 WAYPOINT2 BAT0 B4 B1 B0)
+0.01000: (DROP ROVER0 ROVER0STORE)
+0.01100: (SAMPLE_SOIL ROVER0 ROVER0STORE WAYPOINT2)
+0.01200: (RECHARGE ROVER0 GENERAL WAYPOINT2 BAT0 B4 B0)
+0.01300: (NAVIGATE-BAT ROVER0 WAYPOINT2 WAYPOINT1 BAT0 B4 B4 B3)
+0.01400: (COMMUNICATE_SOIL_DATA ROVER0 GENERAL WAYPOINT2 WAYPOINT1 WAYPOINT2)
+0.01500: (DROP ROVER0 ROVER0STORE)
+0.01600: (NAVIGATE-BAT ROVER0 WAYPOINT1 WAYPOINT3 BAT0 B4 B3 B2)
+0.01700: (SAMPLE_ROCK ROVER0 ROVER0STORE WAYPOINT3)
+0.01800: (COMMUNICATE_ROCK_DATA ROVER0 GENERAL WAYPOINT3 WAYPOINT3 WAYPOINT2)
+0.01900: (NAVIGATE-BAT ROVER0 WAYPOINT3 WAYPOINT1 BAT0 B4 B2 B1)
+```
