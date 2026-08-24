@@ -39,6 +39,7 @@ Vamos acción por acción del dominio, mirando sus precondiciones una a una y qu
 
 Primero empezamos con esta acción:
 
+
 ```pddl
 (:action navigate-bat
 :parameters (?r - rover ?y - waypoint ?z - waypoint
@@ -572,8 +573,6 @@ Por lo tanto, para el tercer objetivo tenemos tres posibles acciones:
 ```
 
 - [ ] **1.4.** Ejecutar un planificador adecuado y analizar el plan obtenido **y la traza de ejecución**. Hay que **referenciar y citar el artículo científico** que describe ese planificador para explicar los elementos de la traza.
-
-
 
 Para realizar la actividad se utilizó BFWS-dual-FF-parser, ya que es uno de los planificadores de referencia de la actividad, es compatible con PDDL 1.2 y permite encontrar rápidamente un plan válido. Este planificador es satisfactorio, es decir, busca encontrar una solución, pero no garantiza que el plan encontrado sea el más corto.
 
