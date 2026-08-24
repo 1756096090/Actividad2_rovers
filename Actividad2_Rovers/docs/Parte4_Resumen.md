@@ -1,7 +1,7 @@
 ## Idea central
 
-Resultados reales de ejecutar `rovers_parte4_dominio.pddl` +
-`rovers_parte4_problema.pddl` contra el servicio remoto
+Resultados reales de ejecutar `Parte4/rovers_dominio.pddl` +
+`Parte4/rovers_parte4_problema.pddl` contra el servicio remoto
 `solver.planning.domains:5001` (el mismo backend que usa
 `editor.planning.domains` y el plugin PDDL de VS Code).
 
