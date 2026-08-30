@@ -52,7 +52,7 @@
 	(can_traverse rover0 waypoint1 waypoint3)
 	(can_traverse rover0 waypoint1 waypoint2)
 	(can_traverse rover0 waypoint2 waypoint1)
-	; Agregar que sí puede viajar desde waypoint4 entre waypoint1 y waypoint2 bidireccionalmente
+	; Agregar que si puede viajar desde waypoint4 entre waypoint1 y waypoint2 bidireccionalmente
 	(can_traverse rover0 waypoint1 waypoint4)
 	(can_traverse rover0 waypoint4 waypoint1)
 	(can_traverse rover0 waypoint2 waypoint4)
