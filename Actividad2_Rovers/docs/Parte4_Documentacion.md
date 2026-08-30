@@ -25,7 +25,7 @@ a otro punto cuando esté en un lugar inadecuado.
 
 | Archivo | Función |
 | --- | --- |
-| `Actividad2_Rovers/src/Parte4/rovers_dominio.pddl` | Dominio base + los 3 cambios de la Parte 4 (predicado, restricciones, nuevo operador). |
+| `Actividad2_Rovers/src/Parte4/rovers_parte4_dominio.pddl` | Dominio base + los 3 cambios de la Parte 4 (predicado, restricciones, nuevo operador). |
 | `Actividad2_Rovers/src/Parte4/rovers_parte4_problema.pddl` | Caso de prueba diseñado para exigir el uso de la nueva funcionalidad. |
 | [[Parte4_Resumen]] | Resultados reales de ejecución contra el planificador remoto y prueba de necesidad. |
 
