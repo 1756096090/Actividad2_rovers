@@ -39,7 +39,6 @@ Vamos acción por acción del dominio, mirando sus precondiciones una a una y qu
 
 Primero empezamos con esta acción:
 
-
 ```pddl
 (:action navigate-bat
 :parameters (?r - rover ?y - waypoint ?z - waypoint
@@ -777,11 +776,198 @@ Cambios pedidos:
 3. Añadir un **operador de remolque**: dos rovers distintos mueven el lander de un waypoint a otro, con restricciones similares al movimiento normal, **consumiendo batería de ambos**, y con los tres vehículos empezando y terminando en el mismo punto.
 
 - [ ] **4.1.** Describir en la memoria cómo se ha resuelto: significado de los elementos introducidos, funcionamiento de las nuevas acciones, etc.
+
+Primero creamos el predicado `suitable_for_lander ?w`, que indica si un waypoint es adecuado para el lander. Con él ponemos precondiciones a las acciones que usan el lander, que son `recharge`, `communicate_soil_data`, `communicate_rock_data` y `communicate_image_data`. Si el lander no está en un punto adecuado, no se pueden realizar estas acciones. Por eso en el `init` debemos indicar al menos un punto adecuado, ya que sin él no podríamos conseguir el goal, porque las comunicaciones necesitan el lander.
+
+Luego creamos la acción de remolque `tow_lander`. Lo primero que tenemos que ver son los parámetros. Están los dos rovers (`?r1` y `?r2`), el lander (`?l`), el waypoint `?y` donde estoy y el waypoint `?z` adonde quiero ir. También están las baterías de los dos rovers con sus niveles máximo, actual y siguiente.
+
+Después vamos a las precondiciones. El rover 1 no puede ser igual al rover 2, y los dos rovers y el lander deben estar en la misma posición `?y`. Los dos rovers tienen que estar disponibles y poder ir de `?y` a `?z`, y además `?z` tiene que ser visible desde `?y`, igual que en el movimiento normal. Por último, los dos rovers deben tener la batería instalada y un nivel suficiente para poder hacer el viaje, es decir, que exista un nivel por debajo del actual.
+
+El efecto cambia la posición de los rovers y del lander de `?y` a `?z`. Además, únicamente cambia la batería de cada rover a su nuevo valor, que es un nivel menos que el actual, mientras que la carga máxima no cambia.
+
 - [ ] **4.2.** Crear el nuevo fichero de dominio **con comentarios** en las modificaciones, para que los cambios sean fáciles de localizar.
   → Entregar `rovers_parte4_dominio.pddl`
 - [ ] **4.3.** Plantear al menos un **caso de prueba** (estado inicial y objetivos) donde el efecto de la modificación se note, es decir, que se usen los nuevos elementos.
   → Entregar `rovers_parte4_problema.pddl`
 - [ ] **4.4.** Ejecutar el planificador y analizar el resultado, repitiendo la discusión de la parte 3 con el nuevo dominio y problema. Se pueden añadir pruebas para comparar solución y coste **permitiendo o no** el nuevo operador.
+
+
+Ejecutamos el planificador BFWS con el nuevo dominio y problema, y encontró un plan de coste 13 en 0.00054 segundos, expandiendo 124 nodos. En el plan, cada rover toma su muestra, luego los dos van a waypoint3 y remolcan el lander hasta waypoint2, que es el único punto adecuado. Después cada rover se mueve para comunicar sus datos y rover0 toma y comunica la imagen.
+
+Al principio el planificador no encontraba plan porque rover0 no tenía camino hasta el lander y su batería no le alcanzaba para llegar y remolcar. Esto muestra que, entre más precondiciones ponemos, más cuidado hay que tener con la batería, los caminos y la visibilidad para que el goal se pueda cumplir.
+
+Para comparar, ejecutamos el mismo problema sin la acción tow_lander y el planificador no encuentra solución, porque el lander se queda en un sitio no adecuado y no se puede comunicar nada. Esto demuestra que el remolque es necesario.
+
+Con los valores iniciales de este problema, el plan de coste 13 es el de menor coste posible. Lo comprobamos con un planificador óptimo, que también dio 13, y además se puede justificar contando las acciones obligatorias. Hacen falta 8 acciones que no son movimientos, que son dos muestras, una calibración, una imagen, tres comunicaciones y un remolque. A eso se suman 5 movimientos. rover1 tiene que ir una vez a waypoint3 y rover0 dos veces para llegar hasta el lander. Después del remolque, los dos rovers tienen que moverse una vez más, porque en el problema no está definido que un waypoint sea visible desde sí mismo, así que no se puede comunicar desde el mismo sitio donde está el lander. En total son 13 acciones y ninguna sobra.
+
+Igual que en la parte 3, revisamos si hay movimientos innecesarios. Los dos desplazamientos después del remolque parecen innecesarios, pero son obligatorios por cómo está definida la visibilidad. Si indicamos que waypoint2 es visible desde sí mismo, los rovers pueden comunicar sin moverse y el coste baja de 13 a 11. BFWS busca encontrar una solución rápido y no garantiza la mejor posible, pero en este caso sí encontró el óptimo. Por eso esos movimientos extra no son culpa del planificador, sino de los valores del problema. En general, los nuevos requisitos hacen que se necesiten más acciones, pero el modelo es más realista.
+
+
+```code-runner-output
+PDDL problem description loaded: 
+	Domain: ROVER-BATTERY
+	Problem: ROVERPROB-PARTE4
+	#Actions: 125
+	#Fluents: 36
+Goals found: 3
+Goals_Edges found: 3
+Starting search with 1-BFWS...
+--[3 / 0]--
+--[3 / 5]--
+--[3 / 6]--
+--[3 / 7]--
+--[3 / 8]--
+--[3 / 9]--
+--[2 / 0]--
+--[2 / 9]--
+--[1 / 0]--
+--[1 / 5]--
+--[0 / 0]--
+--[0 / 3]--
+Total time: 0.000251
+Nodes generated during search: 89
+Nodes expanded during search: 39
+Plan found with cost: 10
+Fast-BFS search completed in 0.000251 secs
+
+
+Plan found:
+0.00000: (TOW_LANDER ROVER1 ROVER0 GENERAL WAYPOINT0 WAYPOINT2 BAT1 B4 B2 B1 BAT0 B4 B2 B1)
+0.00100: (NAVIGATE-BAT ROVER1 WAYPOINT2 WAYPOINT3 BAT1 B4 B1 B0)
+0.00200: (SAMPLE_ROCK ROVER1 ROVER1STORE WAYPOINT3)
+0.00300: (COMMUNICATE_ROCK_DATA ROVER1 GENERAL WAYPOINT3 WAYPOINT3 WAYPOINT2)
+0.00400: (NAVIGATE-BAT ROVER0 WAYPOINT2 WAYPOINT1 BAT0 B4 B1 B0)
+0.00500: (SAMPLE_SOIL ROVER0 ROVER0STORE WAYPOINT1)
+0.00600: (COMMUNICATE_SOIL_DATA ROVER0 GENERAL WAYPOINT1 WAYPOINT1 WAYPOINT2)
+0.00700: (CALIBRATE ROVER0 CAMERA0 OBJECTIVE1 WAYPOINT1)
+0.00800: (TAKE_IMAGE ROVER0 WAYPOINT1 OBJECTIVE1 CAMERA0 HIGH_RES)
+0.00900: (COMMUNICATE_IMAGE_DATA ROVER0 GENERAL OBJECTIVE1 HIGH_RES WAYPOINT1 WAYPOINT2)
+Metric: 0.009000000000000001
+Makespan: 0.009000000000000001
+States evaluated: undefined
+Planner found 1 plan(s) in 3.526secs.
+```
+
+
+
+```code-runner-output
+Planning service: https://solver.planning.domains:5001/package/dual-bfws-ffparser/solve
+Domain: Rover-battery, Problem: roverprob-parte4
+ --- OK.
+ Match tree built with 200 nodes.
+
+PDDL problem description loaded: 
+	Domain: ROVER-BATTERY
+	Problem: ROVERPROB-PARTE4
+	#Actions: 200
+	#Fluents: 38
+Goals found: 3
+Goals_Edges found: 3
+Starting search with 1-BFWS...
+--[3 / 0]--
+--[3 / 2]--
+--[3 / 3]--
+--[3 / 4]--
+--[3 / 5]--
+--[3 / 6]--
+--[3 / 7]--
+--[3 / 8]--
+--[3 / 9]--
+--[3 / 10]--
+--[3 / 11]--
+--[3 / 12]--
+--[3 / 13]--
+--[2 / 0]--
+--[2 / 12]--
+--[1 / 0]--
+--[1 / 2]--
+--[0 / 0]--
+--[0 / 3]--
+Total time: 0.000539001
+Nodes generated during search: 169
+Nodes expanded during search: 124
+Plan found with cost: 13
+Fast-BFS search completed in 0.000539001 secs
+
+
+Plan found:
+0.00000: (SAMPLE_SOIL ROVER0 ROVER0STORE WAYPOINT1)
+0.00100: (NAVIGATE-BAT ROVER0 WAYPOINT1 WAYPOINT2 BAT0 B4 B4 B3)
+0.00200: (NAVIGATE-BAT ROVER1 WAYPOINT2 WAYPOINT3 BAT1 B4 B4 B3)
+0.00300: (SAMPLE_ROCK ROVER1 ROVER1STORE WAYPOINT3)
+0.00400: (NAVIGATE-BAT ROVER0 WAYPOINT2 WAYPOINT3 BAT0 B4 B3 B2)
+0.00500: (TOW_LANDER ROVER1 ROVER0 GENERAL WAYPOINT3 WAYPOINT2 BAT1 B4 B3 B2 BAT0 B4 B2 B1)
+0.00600: (NAVIGATE-BAT ROVER0 WAYPOINT2 WAYPOINT1 BAT0 B4 B1 B0)
+0.00700: (COMMUNICATE_SOIL_DATA ROVER0 GENERAL WAYPOINT1 WAYPOINT1 WAYPOINT2)
+0.00800: (NAVIGATE-BAT ROVER1 WAYPOINT2 WAYPOINT3 BAT1 B4 B2 B1)
+0.00900: (COMMUNICATE_ROCK_DATA ROVER1 GENERAL WAYPOINT3 WAYPOINT3 WAYPOINT2)
+0.01000: (CALIBRATE ROVER0 CAMERA0 OBJECTIVE1 WAYPOINT1)
+0.01100: (TAKE_IMAGE ROVER0 WAYPOINT1 OBJECTIVE1 CAMERA0 HIGH_RES)
+0.01200: (COMMUNICATE_IMAGE_DATA ROVER0 GENERAL OBJECTIVE1 HIGH_RES WAYPOINT1 WAYPOINT2)
+Metric: 0.012000000000000004
+Makespan: 0.012000000000000004
+States evaluated: undefined
+Planner found 1 plan(s) in 3.551secs.
+```
+
+
+
+```code-runner-output
+Planning service: https://solver.planning.domains:5001/package/dual-bfws-ffparser/solve
+Domain: Rover-battery, Problem: roverprob-parte4
+ --- OK.
+ Match tree built with 204 nodes.
+
+PDDL problem description loaded: 
+	Domain: ROVER-BATTERY
+	Problem: ROVERPROB-PARTE4
+	#Actions: 204
+	#Fluents: 38
+Goals found: 3
+Goals_Edges found: 3
+Starting search with 1-BFWS...
+--[3 / 0]--
+--[3 / 2]--
+--[3 / 3]--
+--[3 / 4]--
+--[3 / 5]--
+--[3 / 6]--
+--[3 / 7]--
+--[3 / 8]--
+--[3 / 9]--
+--[3 / 11]--
+--[2 / 0]--
+--[2 / 10]--
+--[1 / 0]--
+--[1 / 3]--
+--[1 / 4]--
+--[0 / 0]--
+--[0 / 5]--
+Total time: 0.000595003
+Nodes generated during search: 197
+Nodes expanded during search: 114
+Plan found with cost: 12
+Fast-BFS search completed in 0.000595003 secs
+
+
+Plan found:
+0.00000: (NAVIGATE-BAT ROVER0 WAYPOINT1 WAYPOINT2 BAT0 B4 B4 B3)
+0.00100: (NAVIGATE-BAT ROVER0 WAYPOINT2 WAYPOINT3 BAT0 B4 B3 B2)
+0.00200: (NAVIGATE-BAT ROVER1 WAYPOINT2 WAYPOINT3 BAT1 B4 B4 B3)
+0.00300: (SAMPLE_ROCK ROVER1 ROVER1STORE WAYPOINT3)
+0.00400: (TOW_LANDER ROVER1 ROVER0 GENERAL WAYPOINT3 WAYPOINT2 BAT1 B4 B3 B2 BAT0 B4 B2 B1)
+0.00500: (COMMUNICATE_ROCK_DATA ROVER1 GENERAL WAYPOINT3 WAYPOINT2 WAYPOINT2)
+0.00600: (CALIBRATE ROVER0 CAMERA0 OBJECTIVE1 WAYPOINT2)
+0.00700: (TAKE_IMAGE ROVER0 WAYPOINT2 OBJECTIVE1 CAMERA0 HIGH_RES)
+0.00800: (COMMUNICATE_IMAGE_DATA ROVER0 GENERAL OBJECTIVE1 HIGH_RES WAYPOINT2 WAYPOINT2)
+0.00900: (NAVIGATE-BAT ROVER0 WAYPOINT2 WAYPOINT1 BAT0 B4 B1 B0)
+0.01000: (SAMPLE_SOIL ROVER0 ROVER0STORE WAYPOINT1)
+0.01100: (COMMUNICATE_SOIL_DATA ROVER0 GENERAL WAYPOINT1 WAYPOINT1 WAYPOINT2)
+Metric: 0.011000000000000003
+Makespan: 0.011000000000000003
+States evaluated: undefined
+Planner found 1 plan(s) in 3.53secs.
+```
 
 ## Entregables
 
@@ -789,8 +975,8 @@ Cambios pedidos:
 
 - [X] `rovers_parte2.1_problema.pddl`
 - [X] `rovers_parte2.2_problema.pddl`
-- [ ] `rovers_parte4_dominio.pddl`
-- [ ] `rovers_parte4_problema.pddl`
+- [X] `rovers_parte4_dominio.pddl`
+- [X] `rovers_parte4_problema.pddl`
 
 Se probará automáticamente con **BFWS-dual-ff-parser** y/o **lama-first**. Si un fichero no valida (tildes, PDDL no soportado), se evalúa negativamente.
 

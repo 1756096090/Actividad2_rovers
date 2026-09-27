@@ -30,175 +30,207 @@
 ; ===================================================================
 
 (define (domain Rover-battery)
-(:requirements :typing :strips :equality)
-(:types rover waypoint store camera mode lander objective
-       blevel battery
-)
+       (:requirements :typing :strips :equality)
+       (:types
+              rover waypoint store camera mode lander objective blevel battery
+       )
 
-(:predicates (at ?x - rover ?y - waypoint)
-             (at_lander ?x - lander ?y - waypoint)
-             (can_traverse ?r - rover ?x - waypoint ?y - waypoint)
-	     (equipped_for_soil_analysis ?r - rover)
-             (equipped_for_rock_analysis ?r - rover)
-             (equipped_for_imaging ?r - rover)
-             (empty ?s - store)
-             (have_rock_analysis ?r - rover ?w - waypoint)
-             (have_soil_analysis ?r - rover ?w - waypoint)
-             (full ?s - store)
-	     (calibrated ?c - camera ?r - rover)
-	     (supports ?c - camera ?m - mode)
-             (available ?r - rover)
-             (visible ?w - waypoint ?p - waypoint)
-             (have_image ?r - rover ?o - objective ?m - mode)
-             (communicated_soil_data ?w - waypoint)
-             (communicated_rock_data ?w - waypoint)
-             (communicated_image_data ?o - objective ?m - mode)
-	     (at_soil_sample ?w - waypoint)
-	     (at_rock_sample ?w - waypoint)
-             (visible_from ?o - objective ?w - waypoint)
-	     (store_of ?s - store ?r - rover)
-	     (calibration_target ?i - camera ?o - objective)
-	     (on_board ?i - camera ?r - rover)
-	     (channel_free ?l - lander)
-            (battery_installed ?r - rover ?b - battery ?bmax ?bcur - blevel)
-	     (lower ?l1 ?l2 - blevel)
-            ; NUEVO (Parte 4): waypoint fisicamente apto para el lander
-            (suitable_for_lander ?w - waypoint)
-)
+       (:predicates
+              (at ?x - rover ?y - waypoint)
+              (at_lander ?x - lander ?y - waypoint)
+              (can_traverse ?r - rover ?x - waypoint ?y - waypoint)
+              (equipped_for_soil_analysis ?r - rover)
+              (equipped_for_rock_analysis ?r - rover)
+              (equipped_for_imaging ?r - rover)
+              (empty ?s - store)
+              (have_rock_analysis ?r - rover ?w - waypoint)
+              (have_soil_analysis ?r - rover ?w - waypoint)
+              (full ?s - store)
+              (calibrated ?c - camera ?r - rover)
+              (supports ?c - camera ?m - mode)
+              (available ?r - rover)
+              (visible ?w - waypoint ?p - waypoint)
+              (have_image ?r - rover ?o - objective ?m - mode)
+              (communicated_soil_data ?w - waypoint)
+              (communicated_rock_data ?w - waypoint)
+              (communicated_image_data ?o - objective ?m - mode)
+              (at_soil_sample ?w - waypoint)
+              (at_rock_sample ?w - waypoint)
+              (visible_from ?o - objective ?w - waypoint)
+              (store_of ?s - store ?r - rover)
+              (calibration_target ?i - camera ?o - objective)
+              (on_board ?i - camera ?r - rover)
+              (channel_free ?l - lander)
+              (battery_installed ?r - rover ?b - battery ?bmax ?bcur - blevel)
+              (lower ?l1 ?l2 - blevel)
+              ; NUEVO (Parte 4): waypoint fisicamente apto para el lander
+              (suitable_for_lander ?w - waypoint)
+       )
 
+       (:action navigate-bat
+              :parameters (?r - rover ?y - waypoint ?z - waypoint ?b - battery ?bmax ?bcur ?bnext - blevel
+              )
+              :precondition (and (can_traverse ?r ?y ?z) (available ?r) (at ?r ?y)
+                     (visible ?y ?z)
+                     (battery_installed ?r ?b ?bmax ?bcur)
+                     (lower ?bnext ?bcur)
+              )
+              :effect (and (not (at ?r ?y)) (at ?r ?z)
+                     (not (battery_installed ?r ?b ?bmax ?bcur))
+                     (battery_installed ?r ?b ?bmax ?bnext)
+              )
+       )
 
-(:action navigate-bat
-:parameters (?r - rover ?y - waypoint ?z - waypoint
-              ?b - battery ?bmax ?bcur ?bnext - blevel
-)
-:precondition (and (can_traverse ?r ?y ?z) (available ?r) (at ?r ?y)
-                (visible ?y ?z)
-                (battery_installed ?r ?b ?bmax ?bcur)
-                (lower ?bnext ?bcur)
-	    )
-:effect (and (not (at ?r ?y)) (at ?r ?z)
-             (not (battery_installed ?r ?b ?bmax ?bcur) )
-             (battery_installed ?r ?b ?bmax ?bnext)
-		)
-)
+       ; NUEVO (Parte 4): dos rovers diferentes remolcan el lander de un
+       ; waypoint a otro. Restricciones analogas a navigate-bat, pero
+       ; aplicadas a los dos rovers, y el lander viaja junto a ellos.
+       (:action tow_lander
+              :parameters (?r1 ?r2 - rover ?l - lander ?y - waypoint ?z - waypoint ?b1 - battery ?bmax1 ?bcur1 ?bnext1 - blevel ?b2 - battery ?bmax2 ?bcur2 ?bnext2 - blevel
+              )
+              :precondition (and
+                     ; ?r1 y ?r2 no pueden ser el mismo rover
+                     (not (= ?r1 ?r2))
 
-; NUEVO (Parte 4): dos rovers diferentes remolcan el lander de un
-; waypoint a otro. Restricciones analogas a navigate-bat, pero
-; aplicadas a los dos rovers, y el lander viaja junto a ellos.
-(:action tow_lander
-:parameters (?r1 ?r2 - rover ?l - lander ?y - waypoint ?z - waypoint
-              ?b1 - battery ?bmax1 ?bcur1 ?bnext1 - blevel
-              ?b2 - battery ?bmax2 ?bcur2 ?bnext2 - blevel
-)
-:precondition (and (not (= ?r1 ?r2))
-                (at ?r1 ?y) (at ?r2 ?y) (at_lander ?l ?y)
-                (available ?r1) (available ?r2)
-                (can_traverse ?r1 ?y ?z) (can_traverse ?r2 ?y ?z)
-                (visible ?y ?z)
-                (battery_installed ?r1 ?b1 ?bmax1 ?bcur1) (lower ?bnext1 ?bcur1)
-                (battery_installed ?r2 ?b2 ?bmax2 ?bcur2) (lower ?bnext2 ?bcur2)
-	    )
-:effect (and (not (at ?r1 ?y)) (at ?r1 ?z)
-             (not (at ?r2 ?y)) (at ?r2 ?z)
-             (not (at_lander ?l ?y)) (at_lander ?l ?z)
-             (not (battery_installed ?r1 ?b1 ?bmax1 ?bcur1))
-             (battery_installed ?r1 ?b1 ?bmax1 ?bnext1)
-             (not (battery_installed ?r2 ?b2 ?bmax2 ?bcur2))
-             (battery_installed ?r2 ?b2 ?bmax2 ?bnext2)
-		)
-)
+                     ; los dos rovers y el lander empiezan en el mismo waypoint ?y
+                     (at ?r1 ?y) (at ?r2 ?y) (at_lander ?l ?y)
 
-(:action recharge
-:parameters (?r - rover ?l - lander ?w - waypoint
-              ?b - battery ?bmax ?bcur - blevel
-)
-:precondition (and (at ?r ?w) (at_lander ?l ?w)
-                (battery_installed ?r ?b ?bmax ?bcur)
-                ; NUEVO (Parte 4): solo se puede recargar si el lander
-                ; esta en un waypoint apto
-                (suitable_for_lander ?w)
-	    )
-:effect (and
-             (not (battery_installed ?r ?b ?bmax ?bcur) )
-             (battery_installed ?r ?b ?bmax ?bmax)
-		)
-)
+                     ; los dos rovers deben estar disponibles
+                     (available ?r1) (available ?r2)
 
-(:action sample_soil
-:parameters (?r - rover ?s - store ?p - waypoint)
-:precondition (and (at ?r ?p) (at_soil_sample ?p) (equipped_for_soil_analysis ?r) (store_of ?s ?r) (empty ?s)
-		)
-:effect (and (not (empty ?s)) (full ?s) (have_soil_analysis ?r ?p) (not (at_soil_sample ?p))
-		)
-)
+                     ; los dos rovers pueden ir de ?y a ?z
+                     (can_traverse ?r1 ?y ?z) (can_traverse ?r2 ?y ?z)
 
-(:action sample_rock
-:parameters (?r - rover ?s - store ?p - waypoint)
-:precondition (and (at ?r ?p) (at_rock_sample ?p) (equipped_for_rock_analysis ?r) (store_of ?s ?r)(empty ?s)
-		)
-:effect (and (not (empty ?s)) (full ?s) (have_rock_analysis ?r ?p) (not (at_rock_sample ?p))
-		)
-)
+                     ;, ?z es visible desde ?y (igual que en navigate-bat)
+                     (visible ?y ?z)
 
-(:action drop
-:parameters (?r - rover ?s - store)
-:precondition (and (store_of ?s ?r) (full ?s)
-		)
-:effect (and (not (full ?s)) (empty ?s)
-	)
-)
+                     ; el rover ?r1 tiene una bateria ?b1 con nivel actual ?bcur1 y carga maxima ?bmax1
+                     ;, ?bnext1 es el nivel que esta justo por debajo de ?bcur1
+                     (battery_installed ?r1 ?b1 ?bmax1 ?bcur1) (lower ?bnext1 ?bcur1)
 
-(:action calibrate
- :parameters (?r - rover ?i - camera ?t - objective ?w - waypoint)
- :precondition (and (equipped_for_imaging ?r) (calibration_target ?i ?t) (at ?r ?w) (visible_from ?t ?w)(on_board ?i ?r)
-		)
- :effect (calibrated ?i ?r)
-)
+                     ; bateria del rover 2: igual que la del rover 1
+                     ;, ?bnext2 es el nivel que esta justo por debajo de ?bcur2
+                     (battery_installed ?r2 ?b2 ?bmax2 ?bcur2) (lower ?bnext2 ?bcur2)
+              )
+              :effect (and
+                     ; el rover ?r1 deja de estar en ?y y pasa a estar en ?z
+                     (not (at ?r1 ?y)) (at ?r1 ?z)
 
-(:action take_image
- :parameters (?r - rover ?p - waypoint ?o - objective ?i - camera ?m - mode)
- :precondition (and (calibrated ?i ?r)
-			 (on_board ?i ?r)
-                      (equipped_for_imaging ?r)
-                      (supports ?i ?m)
-			  (visible_from ?o ?p)
+                     ; el rover ?r2 deja de estar en ?y y pasa a estar en ?z
+                     (not (at ?r2 ?y)) (at ?r2 ?z)
+
+                     ; el lander ?l deja de estar en ?y y pasa a estar en ?z
+                     ; asi los tres vehiculos terminan juntos en el mismo punto
+                     (not (at_lander ?l ?y)) (at_lander ?l ?z)
+
+                     ; el rover ?r1 ya no tiene la bateria ?b1 en el nivel ?bcur1
+                     ; ahora la tiene en el nivel ?bnext1, un nivel menos
+                     (not (battery_installed ?r1 ?b1 ?bmax1 ?bcur1))
+                     (battery_installed ?r1 ?b1 ?bmax1 ?bnext1)
+
+                     ; el rover ?r2 ya no tiene la bateria ?b2 en el nivel ?bcur2
+                     ; ahora la tiene en el nivel ?bnext2, un nivel menos
+                     (not (battery_installed ?r2 ?b2 ?bmax2 ?bcur2))
+                     (battery_installed ?r2 ?b2 ?bmax2 ?bnext2)
+              )
+       )
+
+       (:action recharge
+              :parameters (?r - rover ?l - lander ?w - waypoint ?b - battery ?bmax ?bcur - blevel
+              )
+              :precondition (and (at ?r ?w) (at_lander ?l ?w)
+                     (battery_installed ?r ?b ?bmax ?bcur)
+                     ; NUEVO (Parte 4): solo se puede recargar si el lander
+                     ; esta en un waypoint apto
+                     (suitable_for_lander ?w)
+              )
+              :effect (and
+                     (not (battery_installed ?r ?b ?bmax ?bcur))
+                     (battery_installed ?r ?b ?bmax ?bmax)
+              )
+       )
+
+       (:action sample_soil
+              :parameters (?r - rover ?s - store ?p - waypoint)
+              :precondition (and (at ?r ?p) (at_soil_sample ?p) (equipped_for_soil_analysis ?r) (store_of ?s ?r) (empty ?s)
+              )
+              :effect (and (not (empty ?s)) (full ?s) (have_soil_analysis ?r ?p) (not (at_soil_sample ?p))
+              )
+       )
+
+       (:action sample_rock
+              :parameters (?r - rover ?s - store ?p - waypoint)
+              :precondition (and (at ?r ?p) (at_rock_sample ?p) (equipped_for_rock_analysis ?r) (store_of ?s ?r)(empty ?s)
+              )
+              :effect (and (not (empty ?s)) (full ?s) (have_rock_analysis ?r ?p) (not (at_rock_sample ?p))
+              )
+       )
+
+       (:action drop
+              :parameters (?r - rover ?s - store)
+              :precondition (and (store_of ?s ?r) (full ?s)
+              )
+              :effect (and (not (full ?s)) (empty ?s)
+              )
+       )
+
+       (:action calibrate
+              :parameters (?r - rover ?i - camera ?t - objective ?w - waypoint)
+              :precondition (and (equipped_for_imaging ?r) (calibration_target ?i ?t) (at ?r ?w) (visible_from ?t ?w)(on_board ?i ?r)
+              )
+              :effect (calibrated ?i ?r)
+       )
+
+       (:action take_image
+              :parameters (?r - rover ?p - waypoint ?o - objective ?i - camera ?m - mode)
+              :precondition (and (calibrated ?i ?r)
+                     (on_board ?i ?r)
+                     (equipped_for_imaging ?r)
+                     (supports ?i ?m)
+                     (visible_from ?o ?p)
                      (at ?r ?p)
-               )
- :effect (and (have_image ?r ?o ?m)(not (calibrated ?i ?r))
-		)
-)
+              )
+              :effect (and (have_image ?r ?o ?m)
+                     (not (calibrated ?i ?r))
+              )
+       )
 
-(:action communicate_soil_data
- :parameters (?r - rover ?l - lander ?p - waypoint ?x - waypoint ?y - waypoint)
- :precondition (and (at ?r ?x)(at_lander ?l ?y)(have_soil_analysis ?r ?p)
-                   (visible ?x ?y)(available ?r)(channel_free ?l)
-                   ; NUEVO (Parte 4): el lander debe estar en un waypoint apto
-                   (suitable_for_lander ?y)
-            )
- :effect (and (not (available ?r))(not (channel_free ?l))(channel_free ?l)
-		(communicated_soil_data ?p)(available ?r)
-	)
-)
+       (:action communicate_soil_data
+              :parameters (?r - rover ?l - lander ?p - waypoint ?x - waypoint ?y - waypoint)
+              :precondition (and (at ?r ?x)
+                     (at_lander ?l ?y)(have_soil_analysis ?r ?p)
+                     (visible ?x ?y)(available ?r)(channel_free ?l)
+                     ; NUEVO (Parte 4): el lander debe estar en un waypoint apto
+                     (suitable_for_lander ?y)
+              )
+              :effect (and (not (available ?r))
+                     (not (channel_free ?l))(channel_free ?l)
+                     (communicated_soil_data ?p)(available ?r)
+              )
+       )
 
-(:action communicate_rock_data
- :parameters (?r - rover ?l - lander ?p - waypoint ?x - waypoint ?y - waypoint)
- :precondition (and (at ?r ?x)(at_lander ?l ?y)(have_rock_analysis ?r ?p)
-                   (visible ?x ?y)(available ?r)(channel_free ?l)
-                   ; NUEVO (Parte 4): el lander debe estar en un waypoint apto
-                   (suitable_for_lander ?y)
-            )
- :effect (and (not (available ?r))(not (channel_free ?l))(channel_free ?l)(communicated_rock_data ?p)(available ?r)
-          )
-)
+       (:action communicate_rock_data
+              :parameters (?r - rover ?l - lander ?p - waypoint ?x - waypoint ?y - waypoint)
+              :precondition (and (at ?r ?x)
+                     (at_lander ?l ?y)(have_rock_analysis ?r ?p)
+                     (visible ?x ?y)(available ?r)(channel_free ?l)
+                     ; NUEVO (Parte 4): el lander debe estar en un waypoint apto
+                     (suitable_for_lander ?y)
+              )
+              :effect (and (not (available ?r))
+                     (not (channel_free ?l))(channel_free ?l)(communicated_rock_data ?p)(available ?r)
+              )
+       )
 
-(:action communicate_image_data
- :parameters (?r - rover ?l - lander ?o - objective ?m - mode ?x - waypoint ?y - waypoint)
- :precondition (and (at ?r ?x)(at_lander ?l ?y)(have_image ?r ?o ?m)(visible ?x ?y)(available ?r)(channel_free ?l)
-                   ; NUEVO (Parte 4): el lander debe estar en un waypoint apto
-                   (suitable_for_lander ?y)
-            )
- :effect (and (not (available ?r))(not (channel_free ?l))(channel_free ?l)(communicated_image_data ?o ?m)(available ?r)
-          )
-)
+       (:action communicate_image_data
+              :parameters (?r - rover ?l - lander ?o - objective ?m - mode ?x - waypoint ?y - waypoint)
+              :precondition (and (at ?r ?x)
+                     (at_lander ?l ?y)(have_image ?r ?o ?m)(visible ?x ?y)(available ?r)(channel_free ?l)
+                     ; NUEVO (Parte 4): el lander debe estar en un waypoint apto
+                     (suitable_for_lander ?y)
+              )
+              :effect (and (not (available ?r))
+                     (not (channel_free ?l))(channel_free ?l)(communicated_image_data ?o ?m)(available ?r)
+              )
+       )
 
 )
